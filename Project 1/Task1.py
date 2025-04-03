@@ -1,15 +1,17 @@
+#%%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, cross_validate
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
 from sklearn.decomposition import TruncatedSVD
-
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 # 1. Load and preprocess data
 
@@ -53,7 +55,7 @@ def run_classification_experiment(X, y, random_state=42):
     models = {
         'kNN': {
             'classifier': KNeighborsClassifier(),
-            'params': {'n_neighbors': [1, 3, 5, 7, 9]}
+            'params': {'n_neighbors': [1, 3, 5, 7, 9, 11, 15, 20]}
         },
         'LogReg': {
             'classifier': LogisticRegression(max_iter=1000),
@@ -75,6 +77,7 @@ def run_classification_experiment(X, y, random_state=42):
         grid_search.fit(X_train, y_train)
 
         best_model = grid_search.best_estimator_
+        y_pred = best_model.predict(X_test)
         train_acc = accuracy_score(y_train, best_model.predict(X_train))
         cv_acc = grid_search.best_score_
         test_acc = accuracy_score(y_test, best_model.predict(X_test))
@@ -86,6 +89,10 @@ def run_classification_experiment(X, y, random_state=42):
             'Test Accuracy': test_acc,
             'Optimism (CV - Train)': train_acc - cv_acc
         }
+
+        #Confusion Matrix for better performance insight
+        print(f"\nConfusion Matrix for {name}:")
+        plot_confusion_matrix_sklearn(y_test, y_pred)
 
     return results
 
@@ -114,6 +121,16 @@ def plot_svd_projection(X, y):
     plt.tight_layout()
     plt.show()
 
+# 4.5 confusion matrix
+def plot_confusion_matrix_sklearn(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=range(10), yticklabels=range(10))
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title("Confusion Matrix")
+    plt.show()
 
 # 5. Main
 
@@ -147,3 +164,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# %%
