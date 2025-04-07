@@ -34,7 +34,6 @@ def setup(link,comp):
     return(X_svd,y)
 
 x,y = setup("Numbers.txt",20)
-print(x)
 #### 1
 
 notune_knn = cross_val_score(KNeighborsClassifier(n_neighbors=10), x, y, cv=5, scoring='accuracy').mean()
@@ -48,17 +47,17 @@ notune_randf = (cross_val_score(RandomForestClassifier(), x, y, cv=5, scoring='a
 tune_knn = GridSearchCV(KNeighborsClassifier(), 
                                    {
                                        "n_neighbors": [3, 5, 7, 9]
-                                       }, cv=3).fit(x,y).best_score_
+                                       }, cv=5, scoring='accuracy').fit(x,y).best_score_
 
 tune_lr = GridSearchCV(LogisticRegression(max_iter=1000), 
                                    {
                                        "C": [0.01, 0.1, 1, 10, 100]
-                                       }, cv=3).fit(x,y).best_score_
+                                       }, cv=5, scoring='accuracy').fit(x,y).best_score_
 
 tune_randf = GridSearchCV(RandomForestClassifier(), 
                                    {
                                        "n_estimators": [50, 100, 200]
-                                       }, cv=3).fit(x,y).best_score_
+                                       }, cv=5, scoring='accuracy').fit(x,y).best_score_
 
 ### 3
 print(tune_knn-notune_knn)
