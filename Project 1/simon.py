@@ -36,7 +36,7 @@ def setup(link,comp):
 x,y = setup("Numbers.txt",20)
 #### 1
 
-notune_knn = cross_val_score(KNeighborsClassifier(n_neighbors=10), x, y, cv=5, scoring='accuracy').mean()
+notune_knn = cross_val_score(KNeighborsClassifier(n_neighbors=100), x, y, cv=5,scoring='accuracy').mean()
 
 notune_lr = (cross_val_score(LogisticRegression(max_iter=1000), x, y, cv=5, scoring='accuracy').mean())
 
