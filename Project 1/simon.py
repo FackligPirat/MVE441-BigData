@@ -13,6 +13,17 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 
+#### for part 2
+def scrambler(y, p):
+    n_to_change = int(len(y) * p)  
+    indices_to_change = np.random.choice(len(y), size=n_to_change, replace=False)
+    for idx in indices_to_change:
+        i = np.random.randint(-9, 9)
+        while i == y[idx]:
+            i = np.random.randint(-9, 9)
+        y[idx] = i
+    return(y)
+
 # 1. Load and preprocess data
 
 def load_and_preprocess_data(filepath):
