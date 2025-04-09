@@ -101,6 +101,15 @@ def plot_confusion_matrix_percent(y_true, y_pred, labels, title="Confusion Matri
     plt.title(title, fontsize=16)
     plt.show()
 
+def scrambler(y, p):
+    n_to_change = int(len(y) * p)  
+    indices_to_change = np.random.choice(len(y), size=n_to_change, replace=False)
+    for idx in indices_to_change:
+        i = np.random.randint(-9, 9)
+        while i == y[idx]:
+            i = np.random.randint(-9, 9)
+        y[idx] = i
+    return(y)
 
 X, y = load_and_preprocess_data("Numbers.txt")
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=420)
@@ -197,5 +206,11 @@ for name, model in best_models.items():
     y_pred = model.predict(X_test)
     plot_confusion_matrix_percent(y_test, y_pred, np.unique(y), title=f"{name} (Tuned) - Confusion Matrix (%)")
 #%% 1.3
-
 results = evaluate_models_tuning(models_for_tuning,X,y)
+
+#%% Part 2 test
+X, y = load_and_preprocess_data("Numbers.txt")
+y_10 = scrambler(y, p=0.8)
+
+results = evaluate_models_tuning(models_for_tuning,X,y_10)
+# %%
