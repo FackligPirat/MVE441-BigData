@@ -39,8 +39,7 @@ def visualize_samples(X, y, n_samples=9):
     plt.tight_layout()
     plt.show()
 
-def evaluate_models_tuning(models, X, y, title="Training, Cross-Validation, and Test Error by Model"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=420)
+def evaluate_models_tuning(models, X_train, X_test, y_train, y_test, title="Training, Cross-Validation, and Test Error by Model"):
     results = {}
     for name, model_info in models.items():
         print(f"\nTuning {name}...")
@@ -117,7 +116,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 #%% 1.1
 
 models = {
-    "KNN (k=3)": KNeighborsClassifier(n_neighbors=5),
+    "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
     "KNN (k=20)": KNeighborsClassifier(n_neighbors=20),
     "Logistic Regression": LogisticRegression(max_iter=1000, C=1),
     "Random Forest": RandomForestClassifier(n_estimators= 100, max_depth=None, min_samples_split=2)
@@ -150,7 +149,6 @@ plt.show()
 
 #%% 1.1 (Confusion matrices)
 
-
 for name, model in models.items():
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
@@ -161,9 +159,10 @@ models_for_tuning = {
     "KNN": {"model": KNeighborsClassifier(), "params": {"n_neighbors":[1,3,5,10,20]}},
     "LR": {"model": LogisticRegression(max_iter=1000), "params": {"C":[0.01,0.1,1,10,100]}},
     "Random Forest": {"model": RandomForestClassifier(), "params": {"n_estimators":[50,100,200], 
-                                                                  "max_depth":[None, 10, 20], 
-                                                                  "min_samples_split": [2,5,10], 
-                                                                  "min_samples_leaf":[1,3,5]}}
+                                                                  #"max_depth":[None, 10, 20], 
+                                                                  #"min_samples_split": [2,5,10], 
+                                                                  #"min_samples_leaf":[1,3,5]
+                                                                  }}
 }
 
 best_models = {}
@@ -206,11 +205,19 @@ for name, model in best_models.items():
     y_pred = model.predict(X_test)
     plot_confusion_matrix_percent(y_test, y_pred, np.unique(y), title=f"{name} (Tuned) - Confusion Matrix (%)")
 #%% 1.3
-results = evaluate_models_tuning(models_for_tuning,X,y)
+results = evaluate_models_tuning(models_for_tuning,X_train, X_test,y_train, y_test)
 
-#%% Part 2 test
+#%% Part 2 
+p_values = [0.1,0,4,0.8]
+
 X, y = load_and_preprocess_data("Numbers.txt")
-y_10 = scrambler(y, p=0.8)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=420)
 
-results = evaluate_models_tuning(models_for_tuning,X,y_10)
+results_p = []
+
+for p in p_values:
+        y_new = scrambler(y_train,p)
+        result = evaluate_models_tuning(models_for_tuning,X_train, X_test, y_new, y_test)
+        results_p.append(result)
+    
 # %%
