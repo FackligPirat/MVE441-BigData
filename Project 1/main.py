@@ -58,23 +58,23 @@ def evaluate_models_tuning(models, X_train, X_test, y_train, y_test, n_runs = 5,
             cv_acc = grid.best_score_
             train_acc_list[n] = train_acc
             cv_acc_list[n] = cv_acc
-            test_acc_list[n] = test_acc_list
+            test_acc_list[n] = test_acc
 
         results[name] = {
             "Best Params": grid.best_params_,
             "Train Accuracy": train_acc_list.mean(),
             "CV Accuracy": cv_acc_list.mean(),
             "Test Accuracy": test_acc_list.mean(),
-            "Train Error": 1 - train_acc,
-            "CV Error": 1 - cv_acc,
-            "Test Error": 1 - test_acc,
-            "Optimism": (1-train_acc) - (1-cv_acc)
+            "Train Error": 1 - train_acc_list.mean(),
+            "CV Error": 1 - cv_acc_list.mean(),
+            "Test Error": 1 - test_acc_list.mean(),
+            "Optimism": (1-train_acc_list.mean()) - (1-cv_acc_list.mean())
         }
 
         print(f"  Best Params: {grid.best_params_}")
-        print(f"  Average Train Accuracy over {n_runs} runs: {train_acc:.4f}")
-        print(f"  CV Accuracy over {n_runs} runs: {cv_acc:.4f}")
-        print(f"  Test Accuracy over {n_runs} runs: {test_acc:.4f}")
+        print(f"  Average Train Accuracy over {n_runs} runs: {train_acc_list.mean():.4f}")
+        print(f"  CV Accuracy over {n_runs} runs: {cv_acc_list.mean():.4f}")
+        print(f"  Test Accuracy over {n_runs} runs: {test_acc_list.mean():.4f}")
 
     print("\nResults:")
     for name, result in results.items():
@@ -157,16 +157,16 @@ plt.show()
 
 #%% 1.1 (Confusion matrices)
 
-for name, model in models.items():
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    labels = np.unique(y)  
-    plot_confusion_matrix_percent(y_test, y_pred, labels, title=f"{name} - Confusion Matrix (%)")
+#for name, model in models.items():
+    #model.fit(X_train, y_train)
+    #y_pred = model.predict(X_test)
+    #labels = np.unique(y)  
+    #plot_confusion_matrix_percent(y_test, y_pred, labels, title=f"{name} - Confusion Matrix (%)")
 #%% 1.2
 models_for_tuning = {
-    "KNN": {"model": KNeighborsClassifier(), "params": {"n_neighbors":[1,3,5,10,20]}},
+    "KNN": {"model": KNeighborsClassifier(), "params": {"n_neighbors":[1,3,5,10,20,50,100]}},
     "LR": {"model": LogisticRegression(max_iter=1000), "params": {"C":[0.01,0.1,1,10,100]}},
-    "Random Forest": {"model": RandomForestClassifier(), "params": {"n_estimators":[50,100,200], 
+    "Random Forest": {"model": RandomForestClassifier(), "params": {"n_estimators":[10,50,100,200,300], 
                                                                   #"max_depth":[None, 10, 20], 
                                                                   #"min_samples_split": [2,5,10], 
                                                                   #"min_samples_leaf":[1,3,5]
@@ -178,22 +178,28 @@ accuracy_results = {}
 
 for name, model in models_for_tuning.items():
     print(f"Tuning {name}...")
-    grid = GridSearchCV(model["model"], model["params"], cv=5, scoring='accuracy', n_jobs=-1)
-    grid.fit(X_train, y_train)
-    best_model = grid.best_estimator_
-    best_models[name] = best_model
+    cv_acc_list = np.zeros(5)
+    test_acc_list = np.zeros(5)
+    for n in range(5):
+        grid = GridSearchCV(model["model"], model["params"], cv=5, scoring='accuracy', n_jobs=-1)
+        grid.fit(X_train, y_train)
+        best_model = grid.best_estimator_
+        best_models[name] = best_model
 
-    cv_acc = grid.best_score_
-    test_acc = accuracy_score(y_test, best_model.predict(X_test))
+        cv_acc = grid.best_score_
+        test_acc = accuracy_score(y_test, best_model.predict(X_test))
+        cv_acc_list[n] = cv_acc
+        test_acc_list[n] = test_acc
+
 
     accuracy_results[name] = {
-        "CV Accuracy": cv_acc,
-        "Test Accuracy": test_acc
+        "CV Accuracy": cv_acc_list.mean(),
+        "Test Accuracy": test_acc_list.mean()
     }
 
     print(f"  Best Params: {grid.best_params_}")
-    print(f"  CV Accuracy: {cv_acc:.4f}")
-    print(f"  Test Accuracy: {test_acc:.4f}")
+    print(f"  CV Accuracy: {cv_acc_list.mean():.4f}")
+    print(f"  Test Accuracy: {test_acc_list.mean():.4f}")
 
 acc_df = pd.DataFrame(accuracy_results).T[["CV Accuracy", "Test Accuracy"]]
 
@@ -209,9 +215,9 @@ plt.tight_layout()
 plt.show()
 
 # %% Confusion matrix best models
-for name, model in best_models.items():
-    y_pred = model.predict(X_test)
-    plot_confusion_matrix_percent(y_test, y_pred, np.unique(y), title=f"{name} (Tuned) - Confusion Matrix (%)")
+#for name, model in best_models.items():
+    #y_pred = model.predict(X_test)
+    #plot_confusion_matrix_percent(y_test, y_pred, np.unique(y), title=f"{name} (Tuned) - Confusion Matrix (%)")
 #%% 1.3
 results = evaluate_models_tuning(models_for_tuning,X_train, X_test,y_train, y_test)
 
@@ -226,7 +232,7 @@ results_p = []
 for p in p_values:
         print(f'Training for {p} fraction misslabeled')
         y_new = scrambler(y_train,p)
-        result = evaluate_models_tuning(models_for_tuning,X_train, X_test, y_new, y_test)
+        result = evaluate_models_tuning(models_for_tuning,X_train, X_test, y_new, y_test, title=f"Training, Cross-Validation and Test error by model. P = {p}")
         results_p.append(result)
     
 # %%
