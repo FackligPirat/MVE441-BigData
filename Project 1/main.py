@@ -39,24 +39,32 @@ def visualize_samples(X, y, n_samples=9):
     plt.tight_layout()
     plt.show()
 
-def evaluate_models_tuning(models, X_train, X_test, y_train, y_test, title="Training, Cross-Validation, and Test Error by Model"):
+def evaluate_models_tuning(models, X_train, X_test, y_train, y_test, n_runs = 5, title="Training, Cross-Validation, and Test Error by Model"):
     results = {}
     for name, model_info in models.items():
         print(f"\nTuning {name}...")
-        grid = GridSearchCV(model_info["model"], model_info["params"], cv=5, scoring='accuracy', n_jobs=-1)
-        grid.fit(X_train, y_train)
 
-        best_model = grid.best_estimator_
+        train_acc_list = np.zeros(n_runs)
+        cv_acc_list = np.zeros(n_runs)
+        test_acc_list = np.zeros(n_runs)
+        for n in range(n_runs):
+            grid = GridSearchCV(model_info["model"], model_info["params"], cv=5, scoring='accuracy', n_jobs=-1)
+            grid.fit(X_train, y_train)
 
-        train_acc = accuracy_score(y_train, best_model.predict(X_train))
-        test_acc = accuracy_score(y_test, best_model.predict(X_test))
-        cv_acc = grid.best_score_
+            best_model = grid.best_estimator_
+
+            train_acc = accuracy_score(y_train, best_model.predict(X_train))
+            test_acc = accuracy_score(y_test, best_model.predict(X_test))
+            cv_acc = grid.best_score_
+            train_acc_list[n] = train_acc
+            cv_acc_list[n] = cv_acc
+            test_acc_list[n] = test_acc_list
 
         results[name] = {
             "Best Params": grid.best_params_,
-            "Train Accuracy": train_acc,
-            "CV Accuracy": cv_acc,
-            "Test Accuracy": test_acc,
+            "Train Accuracy": train_acc_list.mean(),
+            "CV Accuracy": cv_acc_list.mean(),
+            "Test Accuracy": test_acc_list.mean(),
             "Train Error": 1 - train_acc,
             "CV Error": 1 - cv_acc,
             "Test Error": 1 - test_acc,
@@ -64,9 +72,9 @@ def evaluate_models_tuning(models, X_train, X_test, y_train, y_test, title="Trai
         }
 
         print(f"  Best Params: {grid.best_params_}")
-        print(f"  Train Accuracy: {train_acc:.4f}")
-        print(f"  CV Accuracy: {cv_acc:.4f}")
-        print(f"  Test Accuracy: {test_acc:.4f}")
+        print(f"  Average Train Accuracy over {n_runs} runs: {train_acc:.4f}")
+        print(f"  CV Accuracy over {n_runs} runs: {cv_acc:.4f}")
+        print(f"  Test Accuracy over {n_runs} runs: {test_acc:.4f}")
 
     print("\nResults:")
     for name, result in results.items():
@@ -208,7 +216,7 @@ for name, model in best_models.items():
 results = evaluate_models_tuning(models_for_tuning,X_train, X_test,y_train, y_test)
 
 #%% Part 2 
-p_values = [0.1,0,4,0.8]
+p_values = [0.1,0.4,0.8]
 
 X, y = load_and_preprocess_data("Numbers.txt")
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=420)
@@ -216,6 +224,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 results_p = []
 
 for p in p_values:
+        print(f'Training for {p} fraction misslabeled')
         y_new = scrambler(y_train,p)
         result = evaluate_models_tuning(models_for_tuning,X_train, X_test, y_new, y_test)
         results_p.append(result)
