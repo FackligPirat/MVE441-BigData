@@ -109,12 +109,13 @@ def plot_confusion_matrix_percent(y_true, y_pred, labels, title="Confusion Matri
     plt.show()
 
 def scrambler(y, p):
+    list = [-9,-2,0,1,2,5,6,8,9]
     n_to_change = int(len(y) * p)  
     indices_to_change = np.random.choice(len(y), size=n_to_change, replace=False)
     for idx in indices_to_change:
-        i = np.random.randint(-9, 9)
+        i = np.random.choice(list)
         while i == y[idx]:
-            i = np.random.randint(-9, 9)
+            i = np.random.choice(list)
         y[idx] = i
     return(y)
 
@@ -157,11 +158,11 @@ plt.show()
 
 #%% 1.1 (Confusion matrices)
 
-#for name, model in models.items():
-    #model.fit(X_train, y_train)
-    #y_pred = model.predict(X_test)
-    #labels = np.unique(y)  
-    #plot_confusion_matrix_percent(y_test, y_pred, labels, title=f"{name} - Confusion Matrix (%)")
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    labels = np.unique(y)  
+    plot_confusion_matrix_percent(y_test, y_pred, labels, title=f"{name} - Confusion Matrix (%)")
 #%% 1.2
 models_for_tuning = {
     "KNN": {"model": KNeighborsClassifier(), "params": {"n_neighbors":[1,3,5,10,20,50,100]}},
