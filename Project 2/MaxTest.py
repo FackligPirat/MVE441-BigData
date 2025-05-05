@@ -57,13 +57,76 @@ plt.tight_layout()
 plt.show()
 
 #%%
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X_num)
 
 models = {
     "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
     "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # %% Max first test
