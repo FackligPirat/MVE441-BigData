@@ -55,10 +55,18 @@ for i, idx in enumerate(indices):
     plt.axis("off")
 plt.tight_layout()
 plt.show()
-# %% Max first test
 
+#%%
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X_num)
+
+models = {
+    "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
+}
+
+
+# %% Max first test
 
 models = {
     "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
@@ -76,7 +84,7 @@ def evaluate_feature_count(clf):
             ("select", SelectKBest(score_func=f_classif, k=k)),
             ("clf", clf)
         ])
-        mean_cv_score = cross_val_score(pipe, X_scaled, y_num, cv=cv).mean()
+        mean_cv_score = cross_val_score(pipe, X_num, y_num, cv=cv).mean()
         scores.append(mean_cv_score)
         if k % 25 == 0:
             print(f'Done with {k} of {len(k_values)}')
