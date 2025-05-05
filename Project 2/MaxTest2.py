@@ -1,24 +1,17 @@
-#%% Import libraries and functions
-
+#%%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
-from sklearn.model_selection import cross_val_score
-import time
-from sklearn.model_selection import train_test_split
-#%% Cats and dogs
 
+#%% Load Data Functions
 def load_and_preprocess_data(filepath):
     df = pd.read_csv(filepath, sep='\s+', engine='python')
     df = df.apply(pd.to_numeric)
@@ -26,84 +19,111 @@ def load_and_preprocess_data(filepath):
     return X
 
 def rotate_image(img_flat, shape, rotation=0):
-    return np.rot90(img_flat.reshape(shape,shape), k=rotation)
+    return np.rot90(img_flat.reshape(shape, shape), k=rotation)
 
-# Load cat/dog image data
-X_catdog = load_and_preprocess_data("catdogdata.txt")
+#%% Select Dataset
+use_catdog = False  # Set to False to use Numbers.txt
 
-y_catdog = np.zeros(X_catdog.shape[0], dtype=int)
-y_catdog[99:] = 1
+if use_catdog:
+    X = load_and_preprocess_data("catdogdata.txt")
+    y = np.zeros(X.shape[0], dtype=int)
+    y[99:] = 1
+    image_shape = (64, 64)
 
-indices = np.random.choice(len(X_catdog), 6, replace=False)
+    indices = np.random.choice(len(X), 6, replace=False)
 
-plt.figure(figsize=(12, 6))
-for i, idx in enumerate(indices):
-    plt.subplot(2, 3, i+1)
-    plt.imshow(rotate_image(X_catdog[idx], 64, 3), cmap="gray")
-    plt.title("Cat" if y_catdog[idx] == 0 else "Dog")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
-# %% Numbers
-X_numbers = load_and_preprocess_data("Numbers.txt")
+    plt.figure(figsize=(12, 6))
+    for i, idx in enumerate(indices):
+        plt.subplot(2, 3, i+1)
+        plt.imshow(rotate_image(X[idx], 64, 3), cmap="gray")
+        plt.title("Cat" if y[idx] == 0 else "Dog")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+else:
+    X_all = load_and_preprocess_data("Numbers.txt")
+    y = X_all[:, 0].astype(int)
+    X = X_all[:, 1:]
+    image_shape = (16, 16)
+    indices = np.random.choice(len(X), 6, replace=False)
 
-y_num = X_numbers[:, 0].astype(int)
-X_num = X_numbers[:, 1:]
-indices = np.random.choice(len(X_num), 6, replace=False)
+    plt.figure(figsize=(12, 6))
+    for i, idx in enumerate(indices):
+        plt.subplot(2, 3, i+1)
+        plt.imshow(rotate_image(X[idx],16,0), cmap="gray")
+        plt.title(f"Label: {y[idx]}")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
 
-plt.figure(figsize=(12, 6))
-for i, idx in enumerate(indices):
-    plt.subplot(2, 3, i+1)
-    plt.imshow(rotate_image(X_num[idx],16,0), cmap="gray")
-    plt.title(f"Label: {y_num[idx]}")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
+#%% Standardize
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-#%%
-# Set up models
+#%% Define Models
 models = {
     "KNN": KNeighborsClassifier(n_neighbors=3),
     "Logistic Regression": LogisticRegression(max_iter=1000),
     "Neural Network": MLPClassifier(hidden_layer_sizes=(50,), max_iter=1000, random_state=0)
 }
 
-# Scale data
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X_catdog)
+#%% Forward Selection with Early Stopping
+feature_counts = range(1, X.shape[1] + 1, 1)
+cv = StratifiedKFold(n_splits=5, shuffle=True)
 
-# Train/test split (hold-out)
-X_train, X_val, y_train, y_val = train_test_split(
-    X_scaled, y_catdog, test_size=0.3, stratify=y_catdog, random_state=1
-)
+patience = 2
+min_delta = 0.05
 
-# Try different numbers of selected features
-feature_counts = range(1, 51, 5)  # Try 1 to 50 features in steps of 5
 results = {}
+selected_masks = {}
 
-for name, model in models.items():
-    scores = []
-    print(f"Running forward selection for: {name}")
+for model_name, model in models.items():
+    print(f"\nEvaluating {model_name}...")
+    mean_scores = []
+    best_score = 0
+    no_improvement_count = 0
+
     for k in feature_counts:
-        print(f"Done with {k} of {len(feature_counts)}")
-        selector = SequentialFeatureSelector(
-            model, n_features_to_select=k, direction='forward',
-        )
-        selector.fit(X_train, y_train)
-        X_train_sel = selector.transform(X_train)
-        X_val_sel = selector.transform(X_val)
-        model.fit(X_train_sel, y_train)
-        val_score = model.score(X_val_sel, y_val)
-        scores.append(val_score)
-    results[name] = scores
+        sfs = SequentialFeatureSelector(model, n_features_to_select=k, cv = cv, direction='forward', n_jobs=-1)
+        X_selected = sfs.fit_transform(X_scaled, y)
+        scores = cross_val_score(model, X_selected, y, cv=cv)
+        mean_score = scores.mean()
+        mean_scores.append(mean_score)
+        print(f"{k} features: mean CV accuracy = {mean_score:.4f}")
 
-# Plotting
-plt.figure(figsize=(10, 6))
-for name, scores in results.items():
-    plt.plot(feature_counts, scores, marker='o', label=name)
+        # Early stopping logic
+        if mean_score > best_score + min_delta:
+            best_score = mean_score
+            no_improvement_count = 0
+            best_sfs = sfs  # Save best selector
+        else:
+            no_improvement_count += 1
+            if no_improvement_count >= patience:
+                print(f"Early stopping at {k} features: small improvment in last {patience} steps.")
+                break
+
+    results[model_name] = (feature_counts[:len(mean_scores)], mean_scores)
+    selected_masks[model_name] = best_sfs.get_support()
+
+#%% Plot CV Accuracy vs. Number of Features
+plt.figure(figsize=(12, 6))
+for model_name, (k_vals, scores) in results.items():
+    plt.plot(k_vals, scores, marker='o', label=model_name)
 plt.xlabel("Number of Selected Features")
-plt.ylabel("Validation Accuracy")
-plt.title("Forward Selection with Hold-Out Validation (Cat vs. Dog)")
+plt.ylabel("Mean CV Accuracy")
+plt.title("Forward Selection with Early Stopping")
 plt.legend()
 plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#%% Plot Selected Pixel Masks
+plt.figure(figsize=(15, 4))
+for i, (model_name, mask) in enumerate(selected_masks.items()):
+    plt.subplot(1, len(selected_masks), i+1)
+    plt.imshow(mask.reshape(image_shape), cmap='gray')
+    plt.title(f"{model_name}")
+    plt.axis("off")
+plt.suptitle(f"Selected Pixels ({image_shape[0]}×{image_shape[1]})")
+plt.tight_layout()
 plt.show()

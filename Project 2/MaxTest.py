@@ -1,20 +1,18 @@
-#%% Import libraries and functions
-
+#%%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.feature_selection import SequentialFeatureSelector, SelectKBest, f_classif
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.feature_selection import SequentialFeatureSelector
-#%% Cats and dogs
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 
+#%% Load Data Functions
 def load_and_preprocess_data(filepath):
     df = pd.read_csv(filepath, sep='\s+', engine='python')
     df = df.apply(pd.to_numeric)
@@ -22,267 +20,123 @@ def load_and_preprocess_data(filepath):
     return X
 
 def rotate_image(img_flat, shape, rotation=0):
-    return np.rot90(img_flat.reshape(shape,shape), k=rotation)
+    return np.rot90(img_flat.reshape(shape, shape), k=rotation)
 
-# Load cat/dog image data
-X_catdog = load_and_preprocess_data("catdogdata.txt")
+#%% Select Dataset
+use_catdog = False  # Set to False to use Numbers.txt
 
-y_catdog = np.zeros(X_catdog.shape[0], dtype=int)
-y_catdog[99:] = 1
+if use_catdog:
+    X = load_and_preprocess_data("catdogdata.txt")
+    y = np.zeros(X.shape[0], dtype=int)
+    y[99:] = 1
+    image_shape = (64, 64)
 
-indices = np.random.choice(len(X_catdog), 6, replace=False)
+    indices = np.random.choice(len(X), 6, replace=False)
 
-plt.figure(figsize=(12, 6))
-for i, idx in enumerate(indices):
-    plt.subplot(2, 3, i+1)
-    plt.imshow(rotate_image(X_catdog[idx], 64, 3), cmap="gray")
-    plt.title("Cat" if y_catdog[idx] == 0 else "Dog")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
-# %% Numbers
-X_numbers = load_and_preprocess_data("Numbers.txt")
+    plt.figure(figsize=(12, 6))
+    for i, idx in enumerate(indices):
+        plt.subplot(2, 3, i+1)
+        plt.imshow(rotate_image(X[idx], 64, 3), cmap="gray")
+        plt.title("Cat" if y[idx] == 0 else "Dog")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+else:
+    X_all = load_and_preprocess_data("Numbers.txt")
+    y = X_all[:, 0].astype(int)
+    X = X_all[:, 1:]
+    image_shape = (16, 16)
+    indices = np.random.choice(len(X), 6, replace=False)
 
-y_num = X_numbers[:, 0].astype(int)
-X_num = X_numbers[:, 1:]
-indices = np.random.choice(len(X_num), 6, replace=False)
+    plt.figure(figsize=(12, 6))
+    for i, idx in enumerate(indices):
+        plt.subplot(2, 3, i+1)
+        plt.imshow(rotate_image(X[idx],16,0), cmap="gray")
+        plt.title(f"Label: {y[idx]}")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
 
-plt.figure(figsize=(12, 6))
-for i, idx in enumerate(indices):
-    plt.subplot(2, 3, i+1)
-    plt.imshow(rotate_image(X_num[idx],16,0), cmap="gray")
-    plt.title(f"Label: {y_num[idx]}")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
+#%% Standardize
+#scaler = StandardScaler()
+#X_scaled = scaler.fit_transform(X)
 
-#%%
+#%% Filter step: Select top-k features using F-test
+k_filter = 200
+filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
+X_filtered = filter_selector.fit_transform(X, y)
+selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 
+#%% Define Models
 models = {
-    "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
+    "KNN": KNeighborsClassifier(n_neighbors=3),
+    "Logistic Regression": LogisticRegression(max_iter=1000),
     "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
+    #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# %% Max first test
-
-models = {
-    "KNN (k=5)": KNeighborsClassifier(n_neighbors=5),
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
-}
-
-# Range of number of features to test
-k_values = list(range(1, 257, 1))
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
-
-def evaluate_feature_count(clf):
-    scores = []
-    for k in k_values:
-        pipe = Pipeline([
-            ("select", SelectKBest(score_func=f_classif, k=k)),
-            ("clf", clf)
-        ])
-        mean_cv_score = cross_val_score(pipe, X_num, y_num, cv=cv).mean()
-        scores.append(mean_cv_score)
-        if k % 25 == 0:
-            print(f'Done with {k} of {len(k_values)}')
-    best_k = k_values[np.argmax(scores)]
-    best_score = max(scores)
-    return best_k, best_score, scores
-
-# Run CV-based feature selection
-best_k_knn, score_knn, scores_knn = evaluate_feature_count(models["KNN (k=5)"])
-best_k_rf, score_rf, scores_rf = evaluate_feature_count(models["Random Forest"])
-
-# Plot results
-plt.plot(k_values, scores_knn, label=f"KNN (best k={best_k_knn})")
-plt.plot(k_values, scores_rf, label=f"Random Forest (best k={best_k_rf})")
-plt.xlabel("Number of Features Selected")
-plt.ylabel("Cross-Validated Accuracy")
-plt.title("Optimal Number of Features via Filtering (F-test)")
+#%% Forward Selection with Early Stopping
+feature_counts = list(range(1, k_filter + 1))
+cv = StratifiedKFold(n_splits=5, shuffle=True)
+
+patience = 3
+min_delta = 0.001
+
+results = {}
+selected_masks = {}
+
+for model_name, model in models.items():
+    print(f"\nEvaluating {model_name}...")
+    mean_scores = []
+    best_score = 0
+    no_improvement_count = 0
+
+    for k in feature_counts:
+        sfs = SequentialFeatureSelector(model, n_features_to_select=k, direction='forward', cv=cv, n_jobs=-1)
+        X_selected = sfs.fit_transform(X_filtered, y)
+        scores = cross_val_score(model, X_selected, y, cv=cv)
+        mean_score = scores.mean()
+        mean_scores.append(mean_score)
+        print(f"{k} features: mean CV accuracy = {mean_score:.4f}")
+
+        # Early stopping logic
+        if mean_score > best_score + min_delta:
+            best_score = mean_score
+            no_improvement_count = 0
+            best_sfs = sfs  # Save best selector
+        else:
+            no_improvement_count += 1
+            if no_improvement_count >= patience:
+                print(f"Early stopping at {k} features: no improvement in last {patience} steps.")
+                break
+
+    results[model_name] = (feature_counts[:len(mean_scores)], mean_scores)
+
+    # Combine filter mask and SFS mask to map back to original pixels
+    sfs_mask = best_sfs.get_support()  # shape: (k_filter,)
+    combined_mask = np.zeros(X.shape[1], dtype=bool)
+    combined_mask[selected_filter_mask] = sfs_mask
+    selected_masks[model_name] = combined_mask
+
+#%% Plot CV Accuracy vs. Number of Features
+plt.figure(figsize=(12, 6))
+for model_name, (k_vals, scores) in results.items():
+    plt.plot(k_vals, scores, marker='o', label=model_name)
+plt.xlabel("Number of Selected Features")
+plt.ylabel("Mean CV Accuracy")
+plt.title("Forward Selection with Filter Step and Early Stopping")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-# Report results
-print(f"KNN: Best number of features = {best_k_knn}, Accuracy = {score_knn:.3f}")
-print(f"Random Forest: Best number of features = {best_k_rf}, Accuracy = {score_rf:.3f}")
-
-selector_knn = SelectKBest(score_func=f_classif, k=best_k_knn)
-selector_knn.fit(X_scaled, y_num)
-selected_knn = selector_knn.get_support(indices=True)  # indices of selected pixels
-
-# Fit SelectKBest with best k for RF
-selector_rf = SelectKBest(score_func=f_classif, k=best_k_rf)
-selector_rf.fit(X_scaled, y_num)
-selected_rf = selector_rf.get_support(indices=True)
-
-# Display selected pixel indices
-print(f"KNN selected pixel indices ({best_k_knn} features):\n{selected_knn}")
-print(f"Random Forest selected pixel indices ({best_k_rf} features):\n{selected_rf}")
-
-def plot_selected_pixels(selected_indices, title):
-    mask = np.zeros(256, dtype=bool)
-    mask[selected_indices] = True
-    plt.imshow(mask.reshape(16, 16), cmap="Greys", interpolation="none")
-    plt.title(title)
+#%% Plot Selected Pixel Masks
+plt.figure(figsize=(15, 4))
+for i, (model_name, mask) in enumerate(selected_masks.items()):
+    plt.subplot(1, len(selected_masks), i+1)
+    plt.imshow(mask.reshape(image_shape), cmap='gray')
+    plt.title(f"{model_name}")
     plt.axis("off")
-
-plt.figure(figsize=(10, 4))
-plt.subplot(1, 2, 1)
-plot_selected_pixels(selected_knn, f"KNN Selected Pixels (k={best_k_knn})")
-plt.subplot(1, 2, 2)
-plot_selected_pixels(selected_rf, f"RF Selected Pixels (k={best_k_rf})")
+plt.suptitle(f"Selected Pixels ({image_shape[0]}×{image_shape[1]})")
 plt.tight_layout()
 plt.show()
-#%% Second test
-def evaluate_wrapper_range(clf, feature_range):
-    scores = []
-    all_selected = []
-    for n_feats in feature_range:
-        sfs = SequentialFeatureSelector(
-            clf,
-            n_features_to_select=n_feats,
-            direction='forward',
-            cv=cv,
-            n_jobs=-1
-        )
-        sfs.fit(X_scaled, y_num)
-        selected_indices = sfs.get_support(indices=True)
-        score = cross_val_score(clf, X_scaled[:, selected_indices], y_num, cv=cv).mean()
-        scores.append(score)
-        all_selected.append(selected_indices)
-        if n_feats % 5 == 0:
-            print(f"Wrapper: Done with {n_feats} features")
-    best_idx = np.argmax(scores)
-    return feature_range[best_idx], scores[best_idx], scores, all_selected[best_idx]
-
-# Define range of features to test
-feature_range = list(range(1, 257, 1))  # test from 5 to 50 features
-
-# Run for KNN
-best_k_knn_wrap, score_knn_wrap, scores_knn_wrap, selected_knn_wrap = evaluate_wrapper_range(
-    KNeighborsClassifier(n_neighbors=5), feature_range
-)
-
-# Run for Random Forest
-best_k_rf_wrap, score_rf_wrap, scores_rf_wrap, selected_rf_wrap = evaluate_wrapper_range(
-    RandomForestClassifier(n_estimators=100, random_state=0), feature_range
-)
-
-# Plot wrapper CV results
-plt.plot(feature_range, scores_knn_wrap, label=f"KNN (best k={best_k_knn_wrap})")
-plt.plot(feature_range, scores_rf_wrap, label=f"RF (best k={best_k_rf_wrap})")
-plt.xlabel("Number of Features Selected (Wrapper)")
-plt.ylabel("Cross-Validated Accuracy")
-plt.title("Wrapper-based Feature Selection (Forward Selection)")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-# Report results
-print(f"[Wrapper CV] KNN: Best number of features = {best_k_knn_wrap}, Accuracy = {score_knn_wrap:.3f}")
-print(f"[Wrapper CV] RF:  Best number of features = {best_k_rf_wrap}, Accuracy = {score_rf_wrap:.3f}")
-#%%
-# Plot side-by-side comparison
-plt.figure(figsize=(10, 5))
-
-# KNN comparison
-plt.subplot(1, 2, 1)
-plt.plot(k_values, scores_knn, label="Filtering (F-test)")
-plt.plot(feature_range, scores_knn_wrap, label="Wrapper (Forward)")
-plt.axvline(best_k_knn, color="gray", linestyle="--", label=f"Best Filter k={best_k_knn}")
-plt.axvline(best_k_knn_wrap, color="black", linestyle="--", label=f"Best Wrapper k={best_k_knn_wrap}")
-plt.title("KNN: Filtering vs Wrapper")
-plt.xlabel("Number of Selected Features")
-plt.ylabel("CV Accuracy")
-plt.legend()
-plt.grid(True)
-
-# RF comparison
-plt.subplot(1, 2, 2)
-plt.plot(k_values, scores_rf, label="Filtering (F-test)")
-plt.plot(feature_range, scores_rf_wrap, label="Wrapper (Forward)")
-plt.axvline(best_k_rf, color="gray", linestyle="--", label=f"Best Filter k={best_k_rf}")
-plt.axvline(best_k_rf_wrap, color="black", linestyle="--", label=f"Best Wrapper k={best_k_rf_wrap}")
-plt.title("Random Forest: Filtering vs Wrapper")
-plt.xlabel("Number of Selected Features")
-plt.ylabel("CV Accuracy")
-plt.legend()
-plt.grid(True)
-
-plt.tight_layout()
-plt.show()
-
-print("Summary of Best Results:")
-print(f"KNN    - Filtering: k={best_k_knn:3}, Accuracy={score_knn:.3f}")
-print(f"KNN    - Wrapper  : k={best_k_knn_wrap:3}, Accuracy={score_knn_wrap:.3f}")
-print(f"Random - Filtering: k={best_k_rf:3}, Accuracy={score_rf:.3f}")
-print(f"Random - Wrapper  : k={best_k_rf_wrap:3}, Accuracy={score_rf_wrap:.3f}")
