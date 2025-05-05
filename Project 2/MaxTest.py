@@ -19,7 +19,7 @@ def load_and_preprocess_data(filepath):
     X = df.values
     return X
 
-def rotate_image(img_flat, shape, rotation=0):
+def rotate_image(img_flat, shape, rotation=0): #So the images is correct orientation
     return np.rot90(img_flat.reshape(shape, shape), k=rotation)
 
 #%% Select Dataset
@@ -57,30 +57,30 @@ else:
     plt.tight_layout()
     plt.show()
 
-#%% Standardize
+#%% Standardize no reason to do this
 #scaler = StandardScaler()
 #X_scaled = scaler.fit_transform(X)
 
 #%% Filter step: Select top-k features using F-test
-k_filter = 200
+k_filter = 200 #Select the "best" 200 features
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
 selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 
-#%% Define Models
+#%% Define Models NN and RN takes really long time. Probably lower K_filter or increase delta
 models = {
     "KNN": KNeighborsClassifier(n_neighbors=3),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
+    #"Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
 #%% Forward Selection with Early Stopping
 feature_counts = list(range(1, k_filter + 1))
-cv = StratifiedKFold(n_splits=5, shuffle=True)
+cv = StratifiedKFold(n_splits=5, shuffle=True) #Better performance when more then 2 classes since the data can be implanaced otherwise
 
-patience = 3
-min_delta = 0.001
+patience = 3 #Check last three iterations for change
+min_delta = 0.001 
 
 results = {}
 selected_masks = {}
@@ -91,7 +91,7 @@ for model_name, model in models.items():
     best_score = 0
     no_improvement_count = 0
 
-    for k in feature_counts:
+    for k in feature_counts: #Sfs is the forward feature select
         sfs = SequentialFeatureSelector(model, n_features_to_select=k, direction='forward', cv=cv, n_jobs=-1)
         X_selected = sfs.fit_transform(X_filtered, y)
         scores = cross_val_score(model, X_selected, y, cv=cv)
@@ -138,5 +138,26 @@ for i, (model_name, mask) in enumerate(selected_masks.items()):
     plt.title(f"{model_name}")
     plt.axis("off")
 plt.suptitle(f"Selected Pixels ({image_shape[0]}×{image_shape[1]})")
+plt.tight_layout()
+plt.show()
+#%% Overlay test
+sample_indices = [0, 1, 2]
+X_samples = X[sample_indices]
+y_samples = y[sample_indices]
+
+plt.figure(figsize=(12, 4 * len(sample_indices)))
+
+for model_idx, (model_name, mask) in enumerate(selected_masks.items()):
+    for i, idx in enumerate(sample_indices):
+        image = X[idx].reshape(image_shape)
+        mask_img = mask.reshape(image_shape)
+
+        plt.subplot(len(sample_indices), len(selected_masks), model_idx + i * len(selected_masks) + 1)
+        plt.imshow(image, cmap='gray')  # base image
+        plt.imshow(mask_img, cmap='autumn', alpha=0.4)  # overlay selected pixels
+        plt.title(f"{model_name} | Label: {y[idx]}")
+        plt.axis("off")
+
+plt.suptitle("Overlay of Selected Pixels on Example Images", fontsize=16)
 plt.tight_layout()
 plt.show()
