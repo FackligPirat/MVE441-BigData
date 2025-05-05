@@ -63,6 +63,9 @@ else:
 
 #%% Filter step: Select top-k features using F-test
 k_filter = 200 #Select the "best" 200 features
+#Maybe use higher k_filter for cats and dogs and lower for num
+#if use_catdog:
+    #k_filter = 400
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
 selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
@@ -141,7 +144,15 @@ plt.suptitle(f"Selected Pixels ({image_shape[0]}×{image_shape[1]})")
 plt.tight_layout()
 plt.show()
 #%% Overlay test
-sample_indices = [0, 1, 2]
+if use_catdog:
+    sample_indices = [0, 1, 101]
+    dim = 64
+    rotation = 3
+else:
+    sample_indices = [0, 1, 2]
+    dim = 16
+    rotation = 0
+sample_indices = [0, 1, 101]
 X_samples = X[sample_indices]
 y_samples = y[sample_indices]
 
@@ -149,7 +160,7 @@ plt.figure(figsize=(12, 4 * len(sample_indices)))
 
 for model_idx, (model_name, mask) in enumerate(selected_masks.items()):
     for i, idx in enumerate(sample_indices):
-        image = X[idx].reshape(image_shape)
+        image = rotate_image(X[idx].reshape(image_shape),dim,rotation)
         mask_img = mask.reshape(image_shape)
 
         plt.subplot(len(sample_indices), len(selected_masks), model_idx + i * len(selected_masks) + 1)
