@@ -23,7 +23,7 @@ def rotate_image(img_flat, shape, rotation=0): #So the images is correct orienta
     return np.rot90(img_flat.reshape(shape, shape), k=rotation)
 
 #%% Select Dataset
-use_catdog = False  # Set to False to use Numbers.txt
+use_catdog = True  # Set to False to use Numbers.txt
 
 if use_catdog:
     X = load_and_preprocess_data("catdogdata.txt")
@@ -71,7 +71,7 @@ selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 models = {
     "KNN": KNeighborsClassifier(n_neighbors=3),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    #"Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
@@ -161,3 +161,4 @@ for model_idx, (model_name, mask) in enumerate(selected_masks.items()):
 plt.suptitle("Overlay of Selected Pixels on Example Images", fontsize=16)
 plt.tight_layout()
 plt.show()
+# %%
