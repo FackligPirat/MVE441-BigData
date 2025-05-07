@@ -64,7 +64,7 @@ def plot_overlay(use_catdog, X, y, selected_masks):
     plt.show()
 
 #%% Select Dataset
-use_catdog = True  # Set to False to use Numbers.txt
+use_catdog = False  # Set to False to use Numbers.txt
 
 if use_catdog:
     X = load_and_preprocess_data("catdogdata.txt")
@@ -122,25 +122,32 @@ models = {
 
 #%% Investigate Lasso
 
-if use_catdog:
-    threshholds = np.flip(np.arange(0.005, 0.09, 0.001))
-else:
-    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
+#if use_catdog:
+#    threshholds = np.flip(np.arange(0.005, 0.09, 0.001))
+#else:
+#    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
+
+max_features = 10
 
 with_filter = False
 cv = StratifiedKFold(n_splits=5, shuffle=True)
 
-results = np.zeros((len(threshholds),len(models),3))
+results = np.zeros((max_features,len(models),3))
 selected_masks = {}
 
-for i, th in enumerate(threshholds):
+for i in range(max_features):
 
     if with_filter:
-        lasso = LassoCV(cv=5, max_iter=10000)
-        lasso.fit(X_filtered, y)
+        lasso = LassoCV(cv=cv, max_iter=10000)
+
+        clf = lasso.fit(X_filtered, y)
+        importance = np.abs(clf.coef_)
+
+        idx = importance.argsort()[-(i+1)]
+        th = importance[idx]
 
         # Get the selected features from Lasso
-        lasso_selector = SelectFromModel(lasso, prefit=True, threshold=th)
+        lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
         X_lasso_selected = lasso_selector.transform(X_filtered)
         lasso_mask = lasso_selector.get_support()
 
@@ -148,15 +155,20 @@ for i, th in enumerate(threshholds):
         mask = np.zeros(X.shape[1], dtype=bool)
         mask[selected_filter_mask] = lasso_mask
     else:
-        lasso = LassoCV(cv=5, max_iter=10000)
-        lasso.fit(X, y)
+        lasso = LassoCV(cv=cv, max_iter=10000)
+
+        clf = lasso.fit(X, y)
+        importance = np.abs(clf.coef_)
+
+        idx = importance.argsort()[-(i+1)]
+        th = importance[idx]
 
         # Get the selected features from Lasso
-        lasso_selector = SelectFromModel(lasso, prefit=True, threshold=th)
+        lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
         X_lasso_selected = lasso_selector.transform(X)
         mask = lasso_selector.get_support()
 
-    print(f"Evaluating with {mask.sum()} selected features, {i/len(threshholds)*100:.1f} %")
+    print(f"Evaluating with {mask.sum()} selected features")
 
     for j, (model_name, model) in enumerate(models.items()):
         scores = cross_val_score(model, X_lasso_selected, y, cv=cv)
@@ -169,7 +181,7 @@ for i, th in enumerate(threshholds):
 #%% Plot
 plt.figure(figsize=(12, 6))
 for i, (model_name, model) in enumerate(models.items()):
-    plt.scatter(results[:,i,1], results[:,i,0], marker='o', label=model_name)
+    plt.plot(results[:,i,1], results[:,i,0], marker='o', label=model_name)
 plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
 plt.title("Lasso with varying number of features (due to varying thresholds)")
