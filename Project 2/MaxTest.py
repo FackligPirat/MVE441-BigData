@@ -62,10 +62,10 @@ else:
 #X_scaled = scaler.fit_transform(X)
 
 #%% Filter step: Select top-k features using F-test
-k_filter = 256/4 #Select the "best" 200 features
+k_filter = 256//4 #Select the "best" 200 features
 #Maybe use higher k_filter for cats and dogs and lower for num
 if use_catdog:
-    k_filter = 4096/4
+    k_filter = 4096//4
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
 selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
@@ -128,6 +128,50 @@ for model_name, (k_vals, scores) in results.items():
 plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
 plt.title("Forward Selection with Filter Step and Early Stopping")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#%% Plot x times
+num_runs = 5
+all_results = {model_name: [] for model_name in models}
+
+for run in range(num_runs):
+    print(f"\n========== Run {run+1} ==========")
+    for model_name, model in models.items():
+        print(f"\nEvaluating {model_name}...")
+        mean_scores = []
+        best_score = 0
+        no_improvement_count = 0
+
+        for k in feature_counts:
+            sfs = SequentialFeatureSelector(model, n_features_to_select=k, direction='forward', cv=cv, n_jobs=-1)
+            X_selected = sfs.fit_transform(X_filtered, y)
+            scores = cross_val_score(model, X_selected, y, cv=cv)
+            mean_score = scores.mean()
+            mean_scores.append(mean_score)
+
+            if mean_score > best_score + min_delta:
+                best_score = mean_score
+                no_improvement_count = 0
+                best_sfs = sfs
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= patience:
+                    break
+
+        k_vals_run = feature_counts[:len(mean_scores)]
+        all_results[model_name].append((k_vals_run, mean_scores))
+
+#%% Plot all runs
+plt.figure(figsize=(12, 6))
+for model_name, runs in all_results.items():
+    for i, (k_vals, scores) in enumerate(runs):
+        plt.plot(k_vals, scores, marker='o', label=f"{model_name} Run {i+1}")
+plt.xlabel("Number of Selected Features")
+plt.ylabel("Mean CV Accuracy")
+plt.title("Forward Selection with Filter Step (5 Repeats)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
