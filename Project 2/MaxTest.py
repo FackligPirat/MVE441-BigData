@@ -11,6 +11,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+import matplotlib.cm as cm
 
 #%% Load Data Functions
 def load_and_preprocess_data(filepath):
@@ -62,19 +63,19 @@ else:
 #X_scaled = scaler.fit_transform(X)
 
 #%% Filter step: Select top-k features using F-test
-k_filter = 256//4 #Select the "best" 200 features
+k_filter = 256//8 #Select the "best" 200 features
 #Maybe use higher k_filter for cats and dogs and lower for num
 if use_catdog:
-    k_filter = 4096//4
+    k_filter = 4096//8
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
 selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 
 #%% Define Models NN and RN takes really long time. Probably lower K_filter or increase delta
 models = {
-    "KNN": KNeighborsClassifier(n_neighbors= 32 if use_catdog else 7),
+    "KNN": KNeighborsClassifier(n_neighbors= 22 if use_catdog else 5),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=100),
+    "Random Forest": RandomForestClassifier(n_estimators=10),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
@@ -164,18 +165,36 @@ for run in range(num_runs):
         k_vals_run = feature_counts[:len(mean_scores)]
         all_results[model_name].append((k_vals_run, mean_scores))
 
-#%% Plot all runs
 plt.figure(figsize=(12, 6))
+fixed_colors = {
+    "KNN": "blue",
+    "Logistic Regression": "orange",
+    "Random Forest": "green"
+}
+
 for model_name, runs in all_results.items():
-    for i, (k_vals, scores) in enumerate(runs):
-        plt.plot(k_vals, scores, marker='o', label=f"{model_name} Run {i+1}")
-plt.xlabel("Number of Selected Features")
-plt.ylabel("Mean CV Accuracy")
-plt.title("Forward Selection with Filter Step (5 Repeats)")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    color = fixed_colors[model_name]
+    
+    plt.figure(figsize=(8, 5))
+    
+    # Plot individual runs
+    for k_vals, scores in runs:
+        plt.plot(k_vals, scores, color=color, alpha=0.4, marker='o', linewidth=1)
+
+    # Plot average line
+    min_len = min(len(scores) for _, scores in runs)
+    aligned_scores = [scores[:min_len] for _, scores in runs]
+    mean_scores = np.mean(aligned_scores, axis=0)
+    plt.plot(k_vals[:min_len], mean_scores, color=color, marker='o',
+             linewidth=2.5, label=f"{model_name} (mean)")
+
+    plt.xlabel("Number of Selected Features")
+    plt.ylabel("Mean CV Accuracy")
+    plt.title(f"Forward Selection Results for {model_name}")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 #%% Plot Selected Pixel Masks
 plt.figure(figsize=(15, 4))
