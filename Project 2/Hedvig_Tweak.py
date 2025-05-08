@@ -11,6 +11,8 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression, LassoCV
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
 
 #%% Load Data Functions and plot functions
 def load_and_preprocess_data(filepath):
@@ -98,15 +100,18 @@ else:
     plt.tight_layout()
     plt.show()
 
+ratio = 0.5
+X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
+
 #%% IMPORTANT FOR LASSO
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
 #%% Filter step: Select top-k features using F-test
-k_filter = 200 #Select the "best" 200 features
-#Maybe use higher k_filter for cats and dogs and lower for num
-#if use_catdog:
-    #k_filter = 400
+if use_catdog:
+    k_filter = 200
+else:
+    k_filter = 50
 
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
@@ -114,9 +119,9 @@ selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 
 #%% Define Models NN and RN takes really long time. Probably lower K_filter or increase delta
 models = {
-    "KNN": KNeighborsClassifier(n_neighbors=3),
+    "KNN": KNeighborsClassifier(n_neighbors= 14 if use_catdog else 7),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=0),
+    "Random Forest": RandomForestClassifier(n_estimators=10),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
@@ -127,66 +132,93 @@ models = {
 #else:
 #    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
 
-max_features = 20
+max_features = 15
+
+patience = 5
+min_delta = 0.001 
 
 with_filter = False
 cv = StratifiedKFold(n_splits=5, shuffle=True)
 
-results = np.zeros((max_features,len(models),3))
+results = np.zeros((max_features,len(models),2))
 selected_masks = {}
 
-for i in range(max_features):
+for j, (model_name, model) in enumerate(models.items()):
+    mean_scores = []
+    best_score = 0
+    no_improvement_count = 0
 
-    if with_filter:
-        lasso = LassoCV(cv=cv, max_iter=10000)
+    print(f"Evaluating for {model_name}")
 
-        clf = lasso.fit(X_filtered, y)
-        importance = np.abs(clf.coef_)
+    for i in range(max_features):
 
-        idx = importance.argsort()[-(i+1)]
-        th = importance[idx]
+        if with_filter:
+            lasso = LassoCV(cv=cv, max_iter=10000)
 
-        # Get the selected features from Lasso
-        lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
-        X_lasso_selected = lasso_selector.transform(X_filtered)
-        lasso_mask = lasso_selector.get_support()
+            clf = lasso.fit(X_filtered, y)
+            importance = np.abs(clf.coef_)
 
-        # Combine filter mask and Lasso mask to map back to original pixels
-        mask = np.zeros(X.shape[1], dtype=bool)
-        mask[selected_filter_mask] = lasso_mask
-    else:
-        lasso = LassoCV(cv=cv, max_iter=10000)
+            idx = importance.argsort()[-(i+1)]
+            th = importance[idx]
 
-        clf = lasso.fit(X, y)
-        importance = np.abs(clf.coef_)
+            # Get the selected features from Lasso
+            lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
+            X_lasso_selected = lasso_selector.transform(X_filtered)
+            lasso_mask = lasso_selector.get_support()
 
-        idx = importance.argsort()[-(i+1)]
-        th = importance[idx]
+            # Combine filter mask and Lasso mask to map back to original pixels
+            mask = np.zeros(X.shape[1], dtype=bool)
+            mask[selected_filter_mask] = lasso_mask
+        else:
+            lasso = LassoCV(cv=cv, max_iter=10000)
 
-        # Get the selected features from Lasso
-        lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
-        X_lasso_selected = lasso_selector.transform(X)
-        mask = lasso_selector.get_support()
+            clf = lasso.fit(X, y)
+            importance = np.abs(clf.coef_)
 
-    print(f"Evaluating with {mask.sum()} selected features")
+            idx = importance.argsort()[-(i+1)]
+            th = importance[idx]
 
-    for j, (model_name, model) in enumerate(models.items()):
+            # Get the selected features from Lasso
+            lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
+            X_lasso_selected = lasso_selector.transform(X)
+            mask = lasso_selector.get_support()
+
+        print(f"{mask.sum()} selected features")
+
         scores = cross_val_score(model, X_lasso_selected, y, cv=cv)
         mean_score = scores.mean()
-        results[i,j,:] = [mean_score, mask.sum(), th]
+        results[i,j,:] = [mean_score, mask.sum()]
         selected_masks[model_name] = mask
+
+        # Early stopping logic
+        if mean_score > best_score + min_delta:
+            best_score = mean_score
+            no_improvement_count = 0
+        else:
+            no_improvement_count += 1
+            if no_improvement_count >= patience:
+                print(f"Early stopping at {i+1} features: no improvement in last {patience} steps.")
+                break
+
 
         #print(f"{model_name}: mean CV accuracy = {mean_score:.4f}")
 
 #%% Plot
 plt.figure(figsize=(12, 6))
 for i, (model_name, model) in enumerate(models.items()):
-    plt.plot(results[:,i,1], results[:,i,0], marker='o', label=model_name)
+    x_results = results[:,i,1]
+    idx = np.nonzero(x_results)[0]
+    if len(idx) < max_features:
+        idx = idx[:-patience]
+    y_results = results[:,i,0]
+    plt.plot(x_results[idx], y_results[idx], marker='o', label=model_name)
+
 plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
 plt.title("Lasso with varying number of features")
 plt.legend()
 plt.grid(True)
+plt.ylim(bottom = 0, top=1)
 plt.tight_layout()
 plt.show()
 
