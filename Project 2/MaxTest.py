@@ -62,6 +62,9 @@ else:
 #scaler = StandardScaler()
 #X_scaled = scaler.fit_transform(X)
 
+ratio = 0.5
+X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
+
 #%% Filter step: Select top-k features using F-test
 k_filter = 50 #Select the "best" 200 features
 #Maybe use higher k_filter for cats and dogs and lower for num
