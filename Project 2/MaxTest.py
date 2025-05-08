@@ -80,7 +80,7 @@ selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 models = {
     "KNN": KNeighborsClassifier(n_neighbors= 14 if use_catdog else 7),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=100),
+    "Random Forest": RandomForestClassifier(n_estimators=50),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
