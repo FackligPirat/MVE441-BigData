@@ -119,7 +119,10 @@ for model_name, model in models.items():
                 print(f"Early stopping at {k} features: no improvement in last {patience} steps.")
                 break
 
-    results[model_name] = (feature_counts[:len(mean_scores)], mean_scores)
+    if len(mean_scores) > patience:
+        results[model_name] = (feature_counts[:len(mean_scores) - patience], mean_scores[:-patience])
+    else:
+        results[model_name] = (feature_counts[:len(mean_scores)], mean_scores)
 
     # Combine filter mask and SFS mask to map back to original pixels
     sfs_mask = best_sfs.get_support()  # shape: (k_filter,)
@@ -169,7 +172,10 @@ for run in range(num_runs):
                     break
 
         k_vals_run = feature_counts[:len(mean_scores)]
-        all_results[model_name].append((k_vals_run, mean_scores))
+        if len(mean_scores) > patience:
+            all_results[model_name].append((k_vals_run[:-patience], mean_scores[:-patience]))
+        else:
+            all_results[model_name].append((k_vals_run, mean_scores))
 
 plt.figure(figsize=(12, 6))
 fixed_colors = {
