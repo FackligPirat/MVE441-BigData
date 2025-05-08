@@ -66,7 +66,7 @@ def plot_overlay(use_catdog, X, y, selected_masks):
     plt.show()
 
 #%% Select Dataset
-use_catdog = False  # Set to False to use Numbers.txt
+use_catdog = True  # Set to False to use Numbers.txt
 
 if use_catdog:
     X = load_and_preprocess_data("catdogdata.txt")
@@ -132,7 +132,7 @@ models = {
 #else:
 #    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
 
-max_features = 35
+max_features = 20
 
 patience = 5
 min_delta = 0.001 
@@ -227,4 +227,119 @@ plt.show()
 plot_masks(results[-1,:,0], selected_masks)
 plot_overlay(use_catdog, X, y, selected_masks)
 
-# %% 
+# %% Run for several runs
+
+max_features = 20
+
+num_runs = 5
+
+patience = 5
+min_delta = 0.001 
+
+with_filter = False
+cv = StratifiedKFold(n_splits=5, shuffle=True)
+
+all_results = np.zeros((max_features,len(models),2,num_runs))
+
+for run in range(num_runs):
+    print(f"\n========== Run {run+1} ==========")
+
+    for j, (model_name, model) in enumerate(models.items()):
+        mean_scores = []
+        best_score = 0
+        no_improvement_count = 0
+
+        print(f"Evaluating for {model_name}")
+
+        for i in range(max_features):
+
+            if with_filter:
+                lasso = LassoCV(cv=cv, max_iter=10000)
+
+                clf = lasso.fit(X_filtered, y)
+                importance = np.abs(clf.coef_)
+
+                idx = importance.argsort()[-(i+1)]
+                th = importance[idx]
+
+                # Get the selected features from Lasso
+                lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
+                X_lasso_selected = lasso_selector.transform(X_filtered)
+                lasso_mask = lasso_selector.get_support()
+
+                # Combine filter mask and Lasso mask to map back to original pixels
+                mask = np.zeros(X.shape[1], dtype=bool)
+                mask[selected_filter_mask] = lasso_mask
+            else:
+                lasso = LassoCV(cv=cv, max_iter=10000)
+
+                clf = lasso.fit(X, y)
+                importance = np.abs(clf.coef_)
+
+                idx = importance.argsort()[-(i+1)]
+                th = importance[idx]
+
+                # Get the selected features from Lasso
+                lasso_selector = SelectFromModel(clf, prefit=True, threshold=th)
+                X_lasso_selected = lasso_selector.transform(X)
+                mask = lasso_selector.get_support()
+
+            if i%5 == 0:
+                print(f"{mask.sum()} selected features")
+
+            scores = cross_val_score(model, X_lasso_selected, y, cv=cv)
+            mean_score = scores.mean()
+            all_results[i,j,:,run] = [mean_score, mask.sum()]
+
+            # Early stopping logic
+            if mean_score > best_score + min_delta:
+                best_score = mean_score
+                no_improvement_count = 0
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= patience:
+                    print(f"Early stopping at {i+1} features: no improvement in last {patience} steps.")
+                    break
+
+#%% Plot for several runs
+#plt.figure(figsize=(12, 6))
+fixed_colors = {
+    "KNN": "blue",
+    "Logistic Regression": "orange",
+    "Random Forest": "green"
+}
+
+for i, (model_name, model) in enumerate(models.items()):
+    color = fixed_colors[model_name]
+
+    plt.figure(figsize=(8, 5))
+
+    # Plot individual runs
+    min_len = 1000
+
+    for k in range(num_runs):
+        x_results = all_results[:,i,1,k]
+        idx = np.nonzero(x_results)[0]
+        if len(idx) < max_features:
+            idx = idx[:-patience]
+        y_results = all_results[:,i,0,k]
+        plt.plot(x_results[idx], y_results[idx], color=color, alpha=0.4, marker='o', linewidth=1)
+
+        if len(idx) < min_len:
+            min_len = len(idx)
+
+    #Plot average
+    avg_results = np.average(all_results[:,i,1,:], axis=1)
+    plt.plot(avg_results[:min_len], all_results[:min_len,i,0,0], color=color, marker='o',
+             linewidth=2.5, label=f"{model_name} (mean)")
+
+    plt.xlabel("Number of Selected Features")
+    plt.ylabel("Mean CV Accuracy")
+    plt.title(f"Forward Selection Results for {model_name}")
+    plt.legend()
+    plt.grid(True)
+    plt.ylim(bottom = 0, top=1)
+    plt.tight_layout()
+    plt.show()
+
+# %%
