@@ -63,24 +63,24 @@ else:
 #X_scaled = scaler.fit_transform(X)
 
 #%% Filter step: Select top-k features using F-test
-k_filter = 256//8 #Select the "best" 200 features
+k_filter = 50 #Select the "best" 200 features
 #Maybe use higher k_filter for cats and dogs and lower for num
 if use_catdog:
-    k_filter = 4096//8
+    k_filter = 200
 filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
 X_filtered = filter_selector.fit_transform(X, y)
 selected_filter_mask = filter_selector.get_support()  # shape: (n_features,)
 
 #%% Define Models NN and RN takes really long time. Probably lower K_filter or increase delta
 models = {
-    "KNN": KNeighborsClassifier(n_neighbors= 22 if use_catdog else 5),
+    "KNN": KNeighborsClassifier(n_neighbors= 14 if use_catdog else 7),
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=10),
+    "Random Forest": RandomForestClassifier(n_estimators=100),
     #"Neural Network": MLPClassifier(hidden_layer_sizes=(30,15), max_iter=2000, early_stopping=True, n_iter_no_change=10, validation_fraction=0.1)
 }
 
 #%% Forward Selection with Early Stopping
-feature_counts = list(range(1, k_filter + 1))
+feature_counts = list(range(1, min(k_filter, X_filtered.shape[1]) ))
 cv = StratifiedKFold(n_splits=5, shuffle=True) #Better performance when more then 2 classes since the data can be implanaced otherwise
 
 patience = 3 #Check last three iterations for change
