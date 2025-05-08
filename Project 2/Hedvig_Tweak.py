@@ -66,7 +66,7 @@ def plot_overlay(use_catdog, X, y, selected_masks):
     plt.show()
 
 #%% Select Dataset
-use_catdog = True  # Set to False to use Numbers.txt
+use_catdog = False  # Set to False to use Numbers.txt
 
 if use_catdog:
     X = load_and_preprocess_data("catdogdata.txt")
@@ -100,8 +100,8 @@ else:
     plt.tight_layout()
     plt.show()
 
-ratio = 0.5
-X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
+#ratio = 0.5
+#X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
 
 #%% IMPORTANT FOR LASSO
 scaler = StandardScaler()
@@ -132,7 +132,7 @@ models = {
 #else:
 #    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
 
-max_features = 15
+max_features = 35
 
 patience = 5
 min_delta = 0.001 
@@ -183,7 +183,8 @@ for j, (model_name, model) in enumerate(models.items()):
             X_lasso_selected = lasso_selector.transform(X)
             mask = lasso_selector.get_support()
 
-        print(f"{mask.sum()} selected features")
+        if i%10 == 0:
+            print(f"{mask.sum()} selected features")
 
         scores = cross_val_score(model, X_lasso_selected, y, cv=cv)
         mean_score = scores.mean()
@@ -215,7 +216,7 @@ for i, (model_name, model) in enumerate(models.items()):
 
 plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
-plt.title("Lasso with varying number of features")
+plt.title("Lasso with Early Stopping")
 plt.legend()
 plt.grid(True)
 plt.ylim(bottom = 0, top=1)
