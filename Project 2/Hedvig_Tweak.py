@@ -64,7 +64,7 @@ def plot_overlay(use_catdog, X, y, selected_masks):
     plt.show()
 
 #%% Select Dataset
-use_catdog = False  # Set to False to use Numbers.txt
+use_catdog = True  # Set to False to use Numbers.txt
 
 if use_catdog:
     X = load_and_preprocess_data("catdogdata.txt")
@@ -127,7 +127,7 @@ models = {
 #else:
 #    threshholds = np.flip(np.arange(0.09, 0.5, 0.01))
 
-max_features = 10
+max_features = 20
 
 with_filter = False
 cv = StratifiedKFold(n_splits=5, shuffle=True)
@@ -184,7 +184,7 @@ for i, (model_name, model) in enumerate(models.items()):
     plt.plot(results[:,i,1], results[:,i,0], marker='o', label=model_name)
 plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
-plt.title("Lasso with varying number of features (due to varying thresholds)")
+plt.title("Lasso with varying number of features")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
