@@ -12,6 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib.cm as cm
+from sklearn.model_selection import train_test_split
 
 #%% Load Data Functions
 def load_and_preprocess_data(filepath):
@@ -62,8 +63,9 @@ else:
 #scaler = StandardScaler()
 #X_scaled = scaler.fit_transform(X)
 
-ratio = 0.5
-X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
+#Ratio is sample size
+#ratio = 0.25
+#X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio) 
 
 #%% Filter step: Select top-k features using F-test
 k_filter = 50 #Select the "best" 200 features
@@ -86,7 +88,7 @@ models = {
 feature_counts = list(range(1, min(k_filter, X_filtered.shape[1]) ))
 cv = StratifiedKFold(n_splits=5, shuffle=True) #Better performance when more then 2 classes since the data can be implanaced otherwise
 
-patience = 3 #Check last three iterations for change
+patience = 5 #Check last three iterations for change
 min_delta = 0.001 
 
 results = {}
@@ -133,6 +135,7 @@ plt.xlabel("Number of Selected Features")
 plt.ylabel("Mean CV Accuracy")
 plt.title("Forward Selection with Filter Step and Early Stopping")
 plt.legend()
+plt.ylim(bottom = 0, top=1)
 plt.grid(True)
 plt.tight_layout()
 plt.show()
@@ -196,6 +199,7 @@ for model_name, runs in all_results.items():
     plt.title(f"Forward Selection Results for {model_name}")
     plt.legend()
     plt.grid(True)
+    plt.ylim(bottom = 0, top=1)
     plt.tight_layout()
     plt.show()
 
