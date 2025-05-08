@@ -64,8 +64,83 @@ else:
 #X_scaled = scaler.fit_transform(X)
 
 #Ratio is sample size
-#ratio = 0.25
+#ratio = 0.5
 #X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio) 
+
+#%% New code for part 2
+ratios = [0.1, 0.25, 0.5]
+
+for ratio in ratios:
+    print(f"\n=== Running for ratio = {ratio} ===")
+    X_unused, X_subset, y_unused, y_subset = train_test_split(X, y, test_size=ratio)
+
+    k_filter = 200 if use_catdog else 50
+    filter_selector = SelectKBest(score_func=f_classif, k=k_filter)
+    X_filtered = filter_selector.fit_transform(X_subset, y_subset)
+    selected_filter_mask = filter_selector.get_support()
+
+    models = {
+        "KNN": KNeighborsClassifier(n_neighbors=14 if use_catdog else 7),
+        "Logistic Regression": LogisticRegression(max_iter=1000),
+        "Random Forest": RandomForestClassifier(n_estimators=10),
+    }
+
+    feature_counts = list(range(1, min(k_filter, X_filtered.shape[1])))
+    cv = StratifiedKFold(n_splits=5, shuffle=True)
+    patience = 5
+    min_delta = 0.001
+
+    results = {}
+    selected_masks = {}
+
+    for model_name, model in models.items():
+        print(f"\nEvaluating {model_name}...")
+        mean_scores = []
+        best_score = 0
+        no_improvement_count = 0
+
+        for k in feature_counts:
+            sfs = SequentialFeatureSelector(model, n_features_to_select=k, direction='forward', cv=cv, n_jobs=-1)
+            X_selected = sfs.fit_transform(X_filtered, y_subset)
+            scores = cross_val_score(model, X_selected, y_subset, cv=cv)
+            mean_score = scores.mean()
+            mean_scores.append(mean_score)
+            print(f"{k} features: mean CV accuracy = {mean_score:.4f}")
+
+            if mean_score > best_score + min_delta:
+                best_score = mean_score
+                no_improvement_count = 0
+                best_sfs = sfs
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= patience:
+                    print(f"Early stopping at {k} features.")
+                    break
+
+        if len(mean_scores) > patience:
+            results[model_name] = (feature_counts[:len(mean_scores) - patience], mean_scores[:-patience])
+        else:
+            results[model_name] = (feature_counts[:len(mean_scores)], mean_scores)
+
+        sfs_mask = best_sfs.get_support()
+        combined_mask = np.zeros(X.shape[1], dtype=bool)
+        combined_mask[selected_filter_mask] = sfs_mask
+        selected_masks[model_name] = combined_mask
+
+    # Plot for this ratio
+    plt.figure(figsize=(12, 6))
+    for model_name, (k_vals, scores) in results.items():
+        plt.plot(k_vals, scores, marker='o', label=model_name)
+    plt.xlabel("Number of Selected Features")
+    plt.ylabel("Mean CV Accuracy")
+    plt.title(f"Ratio = {ratio}: Forward Selection with Filter Step and Early Stopping")
+    plt.legend()
+    plt.ylim(bottom=0, top=1)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
 
 #%% Filter step: Select top-k features using F-test
 k_filter = 50 #Select the "best" 200 features
