@@ -11,6 +11,8 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression, LassoCV
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
 
 #%% Load Data Functions and plot functions
 def load_and_preprocess_data(filepath):
@@ -97,6 +99,9 @@ else:
         plt.axis("off")
     plt.tight_layout()
     plt.show()
+
+ratio = 0.5
+X_unused, X, y_unused, y = train_test_split(X, y, test_size=ratio)
 
 #%% IMPORTANT FOR LASSO
 scaler = StandardScaler()
