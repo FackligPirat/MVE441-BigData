@@ -97,7 +97,7 @@ def plot_with_legend(X_2d, labels, title, label_prefix="Label"):
 
 #%% Select cats or dogs
 
-use_catdog = False  # Set to False to use Numbers.txt
+use_catdog = True  # Set to False to use Numbers.txt
 scaler = StandardScaler()
 
 if use_catdog:
@@ -172,7 +172,7 @@ else:
     plot_distribution(y_unbal, "Unbalanced Subset Distribution")
 
 #%% Select data
-data_choice = "balanced" # normal, balanced or unbalanced
+data_choice = "a" # normal, balanced or unbalanced
 if data_choice == "balanced":
     X = X_bal
     y = y_bal
