@@ -172,7 +172,7 @@ else:
     plot_distribution(y_unbal, "Unbalanced Subset Distribution")
 
 #%% Select data
-data_choice = "unbalanced" # normal, balanced or unbalanced
+data_choice = "balanced" # normal, balanced or unbalanced
 if data_choice == "balanced":
     X = X_bal
     y = y_bal
@@ -208,7 +208,7 @@ kl = KneeLocator(
     direction="increasing"
 )
 #optimal_components = kl.knee
-optimal_components = 40
+optimal_components = 50
 print(f"Optimal number of PCA components: {optimal_components}")
 pca = PCA(n_components=optimal_components)
 X_pca = pca.fit_transform(X_scaled)
@@ -248,8 +248,8 @@ optimal_k = kneedle.knee
 print(f"Optimal number of clusters (Elbow): {optimal_k}")
 # %%  Clustering with optimal_k
 models = {
-    "KMeans": KMeans(n_clusters=optimal_k, random_state=42),
-    "GMM": GaussianMixture(n_components=optimal_k, random_state=42),
+    "KMeans": KMeans(n_clusters=optimal_k),
+    "GMM": GaussianMixture(n_components=optimal_k),
     "Agglomerative": AgglomerativeClustering(n_clusters=optimal_k)
 }
 
@@ -315,3 +315,5 @@ for name, model in models.items():
         cluster_labels = model.fit_predict(X_pca)
 
     plot_with_legend(X_2d, cluster_labels, f"{name} Clustering (k={optimal_k})", label_prefix="Cluster")
+
+# %%
