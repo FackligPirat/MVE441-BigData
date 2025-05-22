@@ -54,7 +54,7 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
     else:
         if diff_sample:
             n_components = min(50, np.floor(X_scaled.shape[0]//5), X_scaled.shape[1])
-            k_range = range(2, 30)
+            k_range = range(2, 21)
         else:
             n_components = min(50, X_scaled.shape[0], X_scaled.shape[1])
 
@@ -237,7 +237,7 @@ def simulate_imbalance_effect(X, y, imbalance_settings, dataset_name="MNIST_Imba
             y_sub.append(np.full(n_samples, cls))
         X_combined = np.vstack(X_sub)
         y_combined = np.concatenate(y_sub)
-        results = run_clustering_models(X_combined, y_true=y_combined, dataset_name=f"{dataset_name}_ratio={imbalance}")
+        results = run_clustering_models(X_combined, y_true=y_combined, dataset_name=f"{dataset_name}_ratio={imbalance}", plot=False, diff_sample=True)
         for r in results:
             r['Cluster Sizes'] = str(imbalance)
         all_results.extend(results)
@@ -312,13 +312,28 @@ mask_012 = np.isin(numbers_y, [0, 1, 2])
 X_012 = numbers_X[mask_012]
 y_012 = numbers_y[mask_012]
 
-sample_size_results = simulate_sample_size_effect(X_012, y_012)
+all_results = []
+
+for _ in range(15):
+    sample_size_results = simulate_sample_size_effect(X_012, y_012)
+    all_results.append(sample_size_results)
+
+# Concatenate all iteration results into a single DataFrame
+combined_results = pd.concat(all_results, ignore_index=True)
+
+# Compute average ARI and average k for each model and imbalance scenario
+avg_results = combined_results.groupby(["Model", "Total Samples"]).agg({
+    "ARI (Sil)": "mean",
+    "Best k (Sil)": "mean"
+}).reset_index()
 
 sample_sizes = sample_size_results["Total Samples"].unique()
 models = sample_size_results["Model"].unique()
 
+#%%
+
 for model in models:
-    data = sample_size_results[sample_size_results["Model"] == model]
+    data = avg_results[avg_results["Model"] == model]
     ARI_sil = data["ARI (Sil)"].to_numpy()
     #ARI_db = data["ARI (DB)"].to_numpy()
     k_sil = data["Best k (Sil)"].to_numpy()
@@ -330,7 +345,7 @@ for model in models:
     plt.title(f"ARI for {model}")
     plt.xlabel("Sample Size")
     plt.ylabel("ARI Score")
-    plt.ylim(bottom=0)
+    plt.ylim([0,0.72])
     plt.xlim(np.max(sample_sizes)+10, np.min(sample_sizes)-10)
     plt.xticks(ticks=sample_sizes)
     plt.grid(True)
@@ -344,7 +359,7 @@ for model in models:
     plt.title(f"Number of Clusters for {model}")
     plt.xlabel("Sample Size")
     plt.ylabel("Number of Clusters")
-    plt.ylim(bottom=0)
+    plt.ylim([0,21])
     plt.xlim(np.max(sample_sizes)+10, np.min(sample_sizes)-10)
     plt.xticks(ticks=sample_sizes)
     plt.grid(True)
@@ -352,11 +367,60 @@ for model in models:
     plt.tight_layout()
     plt.show()
 
-#%%
+#%% BALANCE IMBALANCE
+mask_012 = np.isin(numbers_y, [0, 1, 2])
+X_012 = numbers_X[mask_012]
+y_012 = numbers_y[mask_012]
+
 imbalance_scenarios = [[100, 100, 100], [150, 100, 50], [200, 50, 50], [250, 25, 25]]
-imbalance_results = simulate_imbalance_effect(X_012, y_012, imbalance_scenarios)
 
-#stability_catdog = resampling_stability_analysis(catdog_X, catdog_y, k=2, dataset_name="CatDog")
-#stability_012 = resampling_stability_analysis(X_012, y_012, k=3, dataset_name="Digits012")
+all_results = []
 
+for _ in range(15):
+    imbalance_results = simulate_imbalance_effect(X_012, y_012, imbalance_scenarios)
+    all_results.append(imbalance_results)
+
+# Concatenate all iteration results into a single DataFrame
+combined_results = pd.concat(all_results, ignore_index=True)
+
+# Compute average ARI and average k for each model and imbalance scenario
+avg_results = combined_results.groupby(["Model", "Cluster Sizes"]).agg({
+    "ARI (Sil)": "mean",
+    "Best k (Sil)": "mean"
+}).reset_index()
+
+models = avg_results["Model"].unique()
+
+for model in models:
+    data = avg_results[avg_results["Model"] == model]
+    ARI_sil = data["ARI (Sil)"].to_numpy()
+    #ARI_db = data["ARI (DB)"].to_numpy()
+    k_sil = data["Best k (Sil)"].to_numpy()
+    #k_db = data["Best k (DB)"].to_numpy()
+
+    x = range(len(imbalance_scenarios))
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, ARI_sil, label='Silhouette', marker='o')
+    plt.title(f"ARI for {model}")
+    plt.xlabel("Imbalance Scenarios")
+    plt.ylabel("ARI Score")
+    plt.ylim([0,0.72])
+    plt.xticks(ticks=x, labels=imbalance_scenarios)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, k_sil, label='Silhouette', marker='o')
+    plt.title(f"Number of Clusters for {model}")
+    plt.xlabel("Imbalance Scenarios")
+    plt.ylabel("Number of Clusters")
+    plt.ylim([0,14])
+    plt.xticks(ticks=x, labels=imbalance_scenarios)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 # %%
