@@ -131,7 +131,7 @@ else:
     plt.show()
     # Part 2
 
-    selected_labels = [0, 1, 2, 6]
+    selected_labels = [0, 1, 2]
 
     # Create mask
     mask = np.isin(y, selected_labels)
@@ -159,7 +159,7 @@ else:
     for label, count in zip(labels_bal, counts_bal):
         print(f"Label {label}: {count} instances")
 
-    class_sizes = {0: 100, 1: 300, 2: 50, 6: 150}
+    class_sizes = {0: 100, 1: 300, 2: 50}
     X_unbal, y_unbal = create_unbalanced_subset(X_filtered, y_filtered, class_sizes)
 
     labels_unbal, counts_unbal = np.unique(y_unbal, return_counts=True)
