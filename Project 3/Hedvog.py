@@ -45,17 +45,18 @@ def plot_silhouette_samples(X, labels, title):
     plt.tight_layout()
     plt.show()
 
-# === Decide n_Clusters ===
-
-
 # === Clustering Runner ===
-def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Dataset"):
+def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Dataset", plot=True, diff_sample=False):
     X_scaled = StandardScaler().fit_transform(X)
 
     if dataset_name == "CatDog":
         n_components = min(25, X_scaled.shape[0], X_scaled.shape[1])
     else:
-        n_components = min(50, X_scaled.shape[0], X_scaled.shape[1])
+        if diff_sample:
+            n_components = min(50, np.floor(X_scaled.shape[0]//5), X_scaled.shape[1])
+            k_range = range(2, 30)
+        else:
+            n_components = min(50, X_scaled.shape[0], X_scaled.shape[1])
 
     X_pca_50 = PCA(n_components=n_components).fit_transform(X_scaled)
     X_pca_2 = PCA(n_components=2).fit_transform(X_scaled)
@@ -64,8 +65,8 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
 
     # The models
     models = [
-        ('KMeans', lambda k: KMeans(n_clusters=k, random_state=42)),
-        ('GMM', lambda k: GaussianMixture(n_components=k, random_state=42)),
+        ('KMeans', lambda k: KMeans(n_clusters=k)),
+        ('GMM', lambda k: GaussianMixture(n_components=k)),
         ('Agglomerative', lambda k: AgglomerativeClustering(n_clusters=k))
     ]
 
@@ -93,23 +94,24 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
                 completenesses.append(np.nan)
                 v_measures.append(np.nan)
 
-        # === SILHOUETTES ===
-        # Plot metrics
-        plt.figure(figsize=(10, 6))
-        plt.plot(k_range, silhouettes, label='Silhouette', marker='o')
-        plt.plot(k_range, aris, label='ARI', marker='o')
-        #plt.plot(k_range, homogeneities, label='Homogeneity', marker='o')
-        #plt.plot(k_range, completenesses, label='Completeness', marker='o')
-        #plt.plot(k_range, v_measures, label='V-Measure', marker='o')
-        plt.title(f"{model_key} Metrics on {dataset_name}")
-        plt.xlabel("Number of Clusters")
-        plt.ylabel("Score")
-        plt.ylim(bottom=0)
-        plt.xticks(ticks=k_range)
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+        if plot:
+            # === SILHOUETTES ===
+            # Plot metrics
+            plt.figure(figsize=(10, 6))
+            plt.plot(k_range, silhouettes, label='Silhouette', marker='o')
+            #plt.plot(k_range, aris, label='ARI', marker='o')
+            #plt.plot(k_range, homogeneities, label='Homogeneity', marker='o')
+            #plt.plot(k_range, completenesses, label='Completeness', marker='o')
+            #plt.plot(k_range, v_measures, label='V-Measure', marker='o')
+            plt.title(f"{model_key} Metrics on {dataset_name}")
+            plt.xlabel("Number of Clusters")
+            plt.ylabel("Score")
+            plt.ylim(bottom=0)
+            plt.xticks(ticks=k_range)
+            plt.grid(True)
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
 
         # Best k
         best_k_sil = k_range[np.argmax(silhouettes)]
@@ -137,27 +139,29 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
             })
 
         # PCA scatter and silhouette plot
-        plt.figure(figsize=(6, 6))
-        plt.scatter(X_pca_2[:, 0], X_pca_2[:, 1], c=best_labels_sil, cmap='viridis', s=40, alpha=0.7)
-        plt.title(f"{model_key} Clustering (k={best_k_sil}, Silhouette) on {dataset_name}")
-        plt.xlabel("PCA 1")
-        plt.ylabel("PCA 2")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+        if plot:
+            plt.figure(figsize=(6, 6))
+            plt.scatter(X_pca_2[:, 0], X_pca_2[:, 1], c=best_labels_sil, cmap='viridis', s=40, alpha=0.7)
+            plt.title(f"{model_key} Clustering (k={best_k_sil}, Silhouette) on {dataset_name}")
+            plt.xlabel("PCA 1")
+            plt.ylabel("PCA 2")
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
 
         # === DAVIES-BOULDIN ===
         # Plot metrics
-        plt.figure(figsize=(10, 6))
-        plt.plot(k_range, davies_bouldin, marker='o')
-        plt.title(f"{model_key} Metrics on {dataset_name}")
-        plt.xlabel("Number of Clusters")
-        plt.ylabel("Davies-Bouldin Index")
-        plt.ylim(bottom=0)
-        plt.xticks(ticks=k_range)
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.plot(k_range, davies_bouldin, marker='o')
+            plt.title(f"{model_key} Metrics on {dataset_name}")
+            plt.xlabel("Number of Clusters")
+            plt.ylabel("Davies-Bouldin Index")
+            #plt.ylim(bottom=0)
+            plt.xticks(ticks=k_range)
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
 
         # Best k
         best_k_db = k_range[np.argmin(davies_bouldin)]
@@ -179,14 +183,15 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
         results.append(result)
 
         # PCA scatter and silhouette plot
-        plt.figure(figsize=(6, 6))
-        plt.scatter(X_pca_2[:, 0], X_pca_2[:, 1], c=best_labels_db, cmap='viridis', s=40, alpha=0.7)
-        plt.title(f"{model_key} Clustering (k={best_k_db}, Davies-Bouldin Index) on {dataset_name}")
-        plt.xlabel("PCA 1")
-        plt.ylabel("PCA 2")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+        if plot:
+            plt.figure(figsize=(6, 6))
+            plt.scatter(X_pca_2[:, 0], X_pca_2[:, 1], c=best_labels_db, cmap='viridis', s=40, alpha=0.7)
+            plt.title(f"{model_key} Clustering (k={best_k_db}, Davies-Bouldin Index) on {dataset_name}")
+            plt.xlabel("PCA 1")
+            plt.ylabel("PCA 2")
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
 
         #plot_silhouette_samples(X_pca_50, best_labels_sil, f"{model_key} Silhouette Widths (k={best_k_sil})")
 
@@ -203,7 +208,7 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Da
     return results
 
 # === Sample Size Simulation ===
-def simulate_sample_size_effect(X, y, classes=[0,1,2], sizes=[100, 75, 50, 30, 20, 10], dataset_name="MNIST_SampleSize"):
+def simulate_sample_size_effect(X, y, classes=[0,1,2], sizes=[200, 150, 100, 75, 50, 30, 20, 10], dataset_name="MNIST_SampleSize"):
     print(f"\n=== Simulating Sample Size Effect on {dataset_name} ===")
     all_results = []
     for n_per_class in sizes:
@@ -214,7 +219,7 @@ def simulate_sample_size_effect(X, y, classes=[0,1,2], sizes=[100, 75, 50, 30, 2
             y_sub.append(np.full(n_per_class, cls))
         X_combined = np.vstack(X_sub)
         y_combined = np.concatenate(y_sub)
-        results = run_clustering_models(X_combined, y_true=y_combined, dataset_name=f"{dataset_name}_n={n_per_class*len(classes)}")
+        results = run_clustering_models(X_combined, y_true=y_combined, dataset_name=f"{dataset_name}_n={n_per_class*len(classes)}", plot=False, diff_sample=True)
         for r in results:
             r['Total Samples'] = len(y_combined)
         all_results.extend(results)
@@ -292,13 +297,66 @@ def resampling_stability_analysis(X, y_true, k, n_resamples=10, dataset_name="Da
     return pd.DataFrame(all_scores)
 
 #%%
-# === Run Everything ===
+# === Run ===
 (catdog_X, catdog_y), (numbers_X, numbers_y) = load_catdog_numbers()
-results_catdog = run_clustering_models(catdog_X, y_true=catdog_y, dataset_name="CatDog")
-results_numbers = run_clustering_models(numbers_X, y_true=numbers_y, dataset_name="Numbers", k_range=range(2,21))
+#results_catdog = run_clustering_models(catdog_X, y_true=catdog_y, dataset_name="CatDog", k_range=range(2, 11))
+#results_numbers = run_clustering_models(numbers_X, y_true=numbers_y, dataset_name="Numbers", k_range=range(2, 16))
 
 # Print results
-print("\n=== Full Dataset Results ===")
-print(pd.DataFrame(results_catdog + results_numbers))
+#print("\n=== Full Dataset Results ===")
+#print(pd.DataFrame(results_catdog + results_numbers))
+
+# %% SAMPLE SIZE
+
+mask_012 = np.isin(numbers_y, [0, 1, 2])
+X_012 = numbers_X[mask_012]
+y_012 = numbers_y[mask_012]
+
+sample_size_results = simulate_sample_size_effect(X_012, y_012)
+
+sample_sizes = sample_size_results["Total Samples"].unique()
+models = sample_size_results["Model"].unique()
+
+for model in models:
+    data = sample_size_results[sample_size_results["Model"] == model]
+    ARI_sil = data["ARI (Sil)"].to_numpy()
+    #ARI_db = data["ARI (DB)"].to_numpy()
+    k_sil = data["Best k (Sil)"].to_numpy()
+    #k_db = data["Best k (DB)"].to_numpy()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(sample_sizes, ARI_sil, label='Silhouette', marker='o')
+    #plt.plot(sample_sizes, ARI_db, label='Davies-Bouldin', marker='o')
+    plt.title(f"ARI for {model}")
+    plt.xlabel("Sample Size")
+    plt.ylabel("ARI Score")
+    plt.ylim(bottom=0)
+    plt.xlim(np.max(sample_sizes)+10, np.min(sample_sizes)-10)
+    plt.xticks(ticks=sample_sizes)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(sample_sizes, k_sil, label='Silhouette', marker='o')
+    #plt.plot(sample_sizes, k_db, label='Davies-Bouldin', marker='o')
+    plt.title(f"Number of Clusters for {model}")
+    plt.xlabel("Sample Size")
+    plt.ylabel("Number of Clusters")
+    plt.ylim(bottom=0)
+    plt.xlim(np.max(sample_sizes)+10, np.min(sample_sizes)-10)
+    plt.xticks(ticks=sample_sizes)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+#%%
+imbalance_scenarios = [[100, 100, 100], [150, 100, 50], [200, 50, 50], [250, 25, 25]]
+imbalance_results = simulate_imbalance_effect(X_012, y_012, imbalance_scenarios)
+
+#stability_catdog = resampling_stability_analysis(catdog_X, catdog_y, k=2, dataset_name="CatDog")
+#stability_012 = resampling_stability_analysis(X_012, y_012, k=3, dataset_name="Digits012")
 
 # %%
