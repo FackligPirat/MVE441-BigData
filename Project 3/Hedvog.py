@@ -46,7 +46,7 @@ def plot_silhouette_samples(X, labels, title):
     plt.show()
 
 # === Clustering Runner ===
-def run_clustering_models(X, y_true=None, k_range=range(2, 31), dataset_name="Dataset", plot=True, diff_sample=False):
+def run_clustering_models(X, y_true=None, k_range=range(2, 11), dataset_name="Dataset", plot=True, diff_sample=False):
     X_scaled = StandardScaler().fit_transform(X)
 
     if dataset_name == "CatDog":
@@ -54,6 +54,7 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 31), dataset_name="Da
     else:
         if diff_sample:
             n_components = min(50, np.floor(X_scaled.shape[0]//5), X_scaled.shape[1])
+            k_range = range(2, 30)
         else:
             n_components = min(50, X_scaled.shape[0], X_scaled.shape[1])
 
@@ -207,7 +208,7 @@ def run_clustering_models(X, y_true=None, k_range=range(2, 31), dataset_name="Da
     return results
 
 # === Sample Size Simulation ===
-def simulate_sample_size_effect(X, y, classes=[0,1,2], sizes=[200, 100, 75, 50, 30, 20, 10, 5, 1], dataset_name="MNIST_SampleSize"):
+def simulate_sample_size_effect(X, y, classes=[0,1,2], sizes=[200, 150, 100, 75, 50, 30, 20, 10], dataset_name="MNIST_SampleSize"):
     print(f"\n=== Simulating Sample Size Effect on {dataset_name} ===")
     all_results = []
     for n_per_class in sizes:
@@ -299,7 +300,7 @@ def resampling_stability_analysis(X, y_true, k, n_resamples=10, dataset_name="Da
 # === Run ===
 (catdog_X, catdog_y), (numbers_X, numbers_y) = load_catdog_numbers()
 #results_catdog = run_clustering_models(catdog_X, y_true=catdog_y, dataset_name="CatDog", k_range=range(2, 11))
-#results_numbers = run_clustering_models(numbers_X, y_true=numbers_y, dataset_name="Numbers", k_range=range(2,16))
+#results_numbers = run_clustering_models(numbers_X, y_true=numbers_y, dataset_name="Numbers", k_range=range(2, 16))
 
 # Print results
 #print("\n=== Full Dataset Results ===")
@@ -319,13 +320,13 @@ models = sample_size_results["Model"].unique()
 for model in models:
     data = sample_size_results[sample_size_results["Model"] == model]
     ARI_sil = data["ARI (Sil)"].to_numpy()
-    ARI_db = data["ARI (DB)"].to_numpy()
+    #ARI_db = data["ARI (DB)"].to_numpy()
     k_sil = data["Best k (Sil)"].to_numpy()
-    k_db = data["Best k (DB)"].to_numpy()
+    #k_db = data["Best k (DB)"].to_numpy()
 
     plt.figure(figsize=(10, 6))
     plt.plot(sample_sizes, ARI_sil, label='Silhouette', marker='o')
-    plt.plot(sample_sizes, ARI_db, label='Davies-Bouldin', marker='o')
+    #plt.plot(sample_sizes, ARI_db, label='Davies-Bouldin', marker='o')
     plt.title(f"ARI for {model}")
     plt.xlabel("Sample Size")
     plt.ylabel("ARI Score")
@@ -339,7 +340,7 @@ for model in models:
 
     plt.figure(figsize=(10, 6))
     plt.plot(sample_sizes, k_sil, label='Silhouette', marker='o')
-    plt.plot(sample_sizes, k_db, label='Davies-Bouldin', marker='o')
+    #plt.plot(sample_sizes, k_db, label='Davies-Bouldin', marker='o')
     plt.title(f"Number of Clusters for {model}")
     plt.xlabel("Sample Size")
     plt.ylabel("Number of Clusters")
