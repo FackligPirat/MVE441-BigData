@@ -314,7 +314,7 @@ y_012 = numbers_y[mask_012]
 
 all_results = []
 
-for _ in range(15):
+for _ in range(50):
     sample_size_results = simulate_sample_size_effect(X_012, y_012)
     all_results.append(sample_size_results)
 
